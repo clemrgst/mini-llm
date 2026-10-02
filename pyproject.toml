@@ -8,7 +8,9 @@ authors = [
     { name = "Clément Rogissart", email = "clement.rogissart@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "torch>=2.14.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]
@@ -24,6 +26,8 @@ target-version = "py312"
 # E/F: classic errors, I: import order, UP: modern Python syntax,
 # B: likely bugs, SIM: simplifications, N: naming conventions
 select = ["E", "F", "I", "UP", "B", "SIM", "N"]
+# Report unused imports but never delete them automatically on save
+unfixable = ["F401"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
