@@ -22,6 +22,12 @@ def split_train_val(
 
     Raises ValueError if val_fraction is not strictly between 0 and 1.
     """
+    if val_fraction >= 1 or val_fraction <= 0:
+        raise ValueError("the fraction is not included in ]0;1[")
+
+    n = int((1 - val_fraction) * len(data))
+    return data[:n], data[n:]
+
     raise NotImplementedError  # TODO
 
 
@@ -39,4 +45,11 @@ def get_batch(
 
     `generator` makes the random starts reproducible (used by the tests).
     """
+    s = torch.randint(len(data) - block_size, (batch_size,), generator=generator)
+    x = []
+    y = []
+    for i in range(batch_size):
+        x.append(data[s[i] : s[i] + block_size])
+        y.append(data[s[i] + 1 : s[i] + block_size + 1])
+    return torch.stack(x), torch.stack(y)
     raise NotImplementedError  # TODO
