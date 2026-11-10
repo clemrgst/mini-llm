@@ -1,0 +1,12 @@
+{
+  "model": "bigram",
+  "data_path": "data/moliere.txt",
+  "out_dir": "checkpoints/bigram",
+  "batch_size": 32,
+  "block_size": 8,
+  "max_steps": 5000,
+  "learning_rate": 0.01,
+  "eval_interval": 500,
+  "eval_batches": 100,
+  "seed": 1337
+}
