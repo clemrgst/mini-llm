@@ -49,3 +49,13 @@ def test_checkpoint_round_trip(tmp_path) -> None:
     # The trained model knows that "b" follows "a".
     logits, _ = model(torch.tensor([tokenizer.encode("a")]))
     assert tokenizer.decode([int(logits[0, -1].argmax())]) == "b"
+
+
+def test_gpt_trains_and_reloads(tmp_path) -> None:
+    config = make_config(
+        tmp_path, model="gpt", n_embd=16, n_head=2, n_layer=1, learning_rate=0.01, max_steps=100
+    )
+    history = train(config, log=False)
+    assert history[-1]["val_loss"] < history[0]["val_loss"] / 2
+    model, _, _ = load_checkpoint(tmp_path / "run" / CHECKPOINT_NAME)
+    assert model.block_size == config.block_size

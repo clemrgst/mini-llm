@@ -1,0 +1,16 @@
+{
+  "model": "gpt",
+  "data_path": "data/moliere.txt",
+  "out_dir": "checkpoints/gpt-small",
+  "batch_size": 32,
+  "block_size": 128,
+  "max_steps": 5000,
+  "learning_rate": 0.001,
+  "eval_interval": 250,
+  "eval_batches": 50,
+  "seed": 1337,
+  "n_embd": 128,
+  "n_head": 4,
+  "n_layer": 4,
+  "dropout": 0.1
+}

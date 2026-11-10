@@ -24,8 +24,11 @@ def generate(
     Returns a tensor of shape (B, T + max_new_tokens).
     """
     model.eval()
+    # A Transformer only accepts block_size positions: it reads the end of the text.
+    block_size = getattr(model, "block_size", None)
     for _ in range(max_new_tokens):
-        logits, _ = model(idx)  # (B, T, C)
+        context = idx if block_size is None else idx[:, -block_size:]
+        logits, _ = model(context)  # (B, T, C)
         last_logits = logits[:, -1, :]  # (B, C)
         probs = F.softmax(last_logits, dim=-1)  # (B, C), each row sums to 1
         next_idx = torch.multinomial(probs, num_samples=1, generator=generator)  # (B, 1)

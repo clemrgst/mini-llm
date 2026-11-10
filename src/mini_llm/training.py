@@ -18,6 +18,7 @@ from mini_llm.batching import get_batch, split_train_val
 from mini_llm.bigram import BigramLanguageModel
 from mini_llm.config import Config
 from mini_llm.generation import generate
+from mini_llm.model import GPTLanguageModel
 from mini_llm.tokenizer import CharTokenizer
 
 CHECKPOINT_NAME = "model.pt"
@@ -34,6 +35,15 @@ def build_model(config: Config, vocab_size: int) -> nn.Module:
     """Create the untrained model described by the config."""
     if config.model == "bigram":
         return BigramLanguageModel(vocab_size)
+    if config.model == "gpt":
+        return GPTLanguageModel(
+            vocab_size,
+            block_size=config.block_size,
+            n_embd=config.n_embd,
+            n_head=config.n_head,
+            n_layer=config.n_layer,
+            dropout=config.dropout,
+        )
     raise ValueError(f"unknown model type: {config.model!r}")
 
 

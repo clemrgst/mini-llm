@@ -73,3 +73,100 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = torch.cat([head(x) for head in self.heads], dim=-1)  # (B, T, C)
         return self.dropout(self.proj(out))
+
+
+class FeedForward(nn.Module):
+    """A small two-layer network applied to each position separately.
+
+    Attention lets positions exchange information; the feed-forward layer then
+    lets each position "think" about what it has gathered.
+    """
+
+    def __init__(self, n_embd: int, dropout: float) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd, 4 * n_embd),
+            nn.GELU(),
+            nn.Linear(4 * n_embd, n_embd),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+class Block(nn.Module):
+    """One Transformer block: communication (attention), then computation (MLP).
+
+    Each sub-layer is wrapped in a residual connection, x = x + f(norm(x)):
+    the block only adds a correction to its input. This keeps gradients flowing
+    through deep stacks. LayerNorm keeps the values on a stable scale.
+    """
+
+    def __init__(self, n_embd: int, n_head: int, block_size: int, dropout: float) -> None:
+        super().__init__()
+        self.ln1 = nn.LayerNorm(n_embd)
+        self.attention = MultiHeadAttention(n_embd, n_head, block_size, dropout)
+        self.ln2 = nn.LayerNorm(n_embd)
+        self.feed_forward = FeedForward(n_embd, dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.attention(self.ln1(x))
+        x = x + self.feed_forward(self.ln2(x))
+        return x
+
+
+class GPTLanguageModel(nn.Module):
+    """The full model: embeddings, a stack of blocks, and a final projection.
+
+    Same interface as BigramLanguageModel: forward(idx, targets) returns
+    (logits, loss), so the training loop and generation work with both.
+    """
+
+    def __init__(
+        self,
+        vocab_size: int,
+        block_size: int,
+        n_embd: int,
+        n_head: int,
+        n_layer: int,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.block_size = block_size
+        # What the character is...
+        self.token_embedding = nn.Embedding(vocab_size, n_embd)
+        # ...and where it is: attention alone ignores the order of positions.
+        self.position_embedding = nn.Embedding(block_size, n_embd)
+        self.dropout = nn.Dropout(dropout)
+        self.blocks = nn.Sequential(
+            *[Block(n_embd, n_head, block_size, dropout) for _ in range(n_layer)]
+        )
+        self.ln_final = nn.LayerNorm(n_embd)
+        self.lm_head = nn.Linear(n_embd, vocab_size)  # back to one score per character
+        self.apply(self._init_weights)
+
+    @staticmethod
+    def _init_weights(module: nn.Module) -> None:
+        # Small random weights (std 0.02, as in GPT-2): training starts stable.
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        if isinstance(module, nn.Linear) and module.bias is not None:
+            nn.init.zeros_(module.bias)
+
+    def forward(
+        self, idx: torch.Tensor, targets: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        _, time = idx.shape
+        if time > self.block_size:
+            raise ValueError(f"sequence of length {time} is longer than block_size")
+        positions = torch.arange(time, device=idx.device)  # 0, 1, ..., T-1
+        x = self.token_embedding(idx) + self.position_embedding(positions)  # (B, T, C)
+        x = self.dropout(x)
+        x = self.blocks(x)  # (B, T, C)
+        logits = self.lm_head(self.ln_final(x))  # (B, T, vocab_size)
+        if targets is None:
+            return logits, None
+        batch, time, channels = logits.shape
+        loss = F.cross_entropy(logits.view(batch * time, channels), targets.view(batch * time))
+        return logits, loss
