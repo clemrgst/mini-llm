@@ -28,8 +28,6 @@ def split_train_val(
     n = int((1 - val_fraction) * len(data))
     return data[:n], data[n:]
 
-    raise NotImplementedError  # TODO
-
 
 def get_batch(
     data: torch.Tensor,
@@ -52,4 +50,3 @@ def get_batch(
         x.append(data[s[i] : s[i] + block_size])
         y.append(data[s[i] + 1 : s[i] + block_size + 1])
     return torch.stack(x), torch.stack(y)
-    raise NotImplementedError  # TODO
