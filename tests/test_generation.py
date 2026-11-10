@@ -33,3 +33,47 @@ def test_generate_follows_a_certain_model() -> None:
             model.token_embedding.weight[i, (i + 1) % VOCAB_SIZE] = 100.0
     out = generate(model, torch.zeros((1, 1), dtype=torch.long), 12)
     assert out[0].tolist() == [i % VOCAB_SIZE for i in range(13)]
+
+
+def make_peaked_model() -> BigramLanguageModel:
+    """A model whose favourite next character is always i + 1, but not by much."""
+    model = BigramLanguageModel(VOCAB_SIZE)
+    with torch.no_grad():
+        model.token_embedding.weight.zero_()
+        for i in range(VOCAB_SIZE):
+            model.token_embedding.weight[i, (i + 1) % VOCAB_SIZE] = 1.0
+    return model
+
+
+def test_top_k_of_one_always_takes_the_most_likely_character() -> None:
+    out = generate(make_peaked_model(), torch.zeros((1, 1), dtype=torch.long), 15, top_k=1)
+    assert out[0].tolist() == [i % VOCAB_SIZE for i in range(16)]
+
+
+def test_low_temperature_is_almost_greedy() -> None:
+    out = generate(
+        make_peaked_model(),
+        torch.zeros((1, 1), dtype=torch.long),
+        15,
+        temperature=0.01,
+        generator=torch.Generator().manual_seed(0),
+    )
+    assert out[0].tolist() == [i % VOCAB_SIZE for i in range(16)]
+
+
+def test_high_temperature_explores() -> None:
+    out = generate(
+        make_peaked_model(),
+        torch.zeros((1, 1), dtype=torch.long),
+        200,
+        temperature=5.0,
+        generator=torch.Generator().manual_seed(0),
+    )
+    assert len(set(out[0].tolist())) == VOCAB_SIZE
+
+
+def test_non_positive_temperature_is_rejected() -> None:
+    import pytest
+
+    with pytest.raises(ValueError):
+        generate(make_peaked_model(), torch.zeros((1, 1), dtype=torch.long), 1, temperature=0)
